@@ -23,6 +23,7 @@ if sys.platform == "win32":
 from simulator import simulate_command, SimulationResult
 from executor import execute_command, get_audit_log, is_hard_blocked
 from rollback import generate_rollback
+from sandbox import simulate_in_sandbox, is_raw_command, detect_danger_level
 
 # ============================================================
 #  APP SETUP
@@ -269,7 +270,7 @@ def quick_check(command: str):
 
 
 # ============================================================
-#  NEW ENDPOINTS — Rollback + Comparison
+#  NEW ENDPOINTS — Rollback + Comparison + Sandbox
 # ============================================================
 
 @app.post("/rollback")
@@ -383,10 +384,103 @@ def compare():
 #  RUN
 # ============================================================
 
+class SandboxRequest(BaseModel):
+    """Request body for /sandbox endpoint."""
+    command: str
+
+class AnalyzeRequest(BaseModel):
+    """Request body for /analyze endpoint (combined simulation + sandbox)."""
+    command: str
+    context: Optional[str] = ""
+
+
+@app.post("/sandbox")
+def sandbox(req: SandboxRequest):
+    """
+    SANDBOX ENDPOINT — Run a command in a virtual filesystem.
+    
+    Creates a snapshot of the real filesystem, "executes" the command
+    in the sandbox, and returns a BEFORE vs AFTER diff.
+    
+    NOTHING is actually executed. Pure simulation.
+    
+    Example request:
+        POST /sandbox
+        {"command": "rm -rf /home/user/projects"}
+    
+    Example response:
+        {
+            "command": "rm -rf /home/user/projects",
+            "target_path": "/home/user/projects",
+            "before_file_count": 234,
+            "after_file_count": 0,
+            "data_destroyed_readable": "156.3 MB",
+            "destruction_percentage": 100.0,
+            "is_catastrophic": true,
+            "files_deleted": [...],
+            "impact_summary": "234 files/dirs PERMANENTLY DELETED..."
+        }
+    """
+    if not req.command.strip():
+        raise HTTPException(status_code=400, detail="Command cannot be empty")
+    
+    result = simulate_in_sandbox(req.command)
+    return result.to_dict()
+
+
+@app.post("/analyze")
+def analyze(req: AnalyzeRequest):
+    """
+    COMBINED ENDPOINT — Full analysis: AI simulation + Sandbox + Risk detection.
+    
+    This is the POWER endpoint. Gives everything in one call:
+    - Is it a raw command?
+    - Danger level (instant, no LLM needed)
+    - Full AI-powered simulation (risk score, warnings, safer alternative)
+    - Sandbox filesystem diff (before/after)
+    
+    Example request:
+        POST /analyze
+        {"command": "rm -rf ~/projects"}
+    
+    Returns everything the frontend needs to render the full preview.
+    """
+    if not req.command.strip():
+        raise HTTPException(status_code=400, detail="Command cannot be empty")
+    
+    command = req.command.strip()
+    
+    # Quick detection (instant, no LLM)
+    raw = is_raw_command(command)
+    danger = detect_danger_level(command)
+    
+    # AI simulation (LLM-powered)
+    sim = simulate_command(command, req.context or "")
+    
+    # Sandbox (filesystem diff)
+    sandbox_result = simulate_in_sandbox(
+        sim.planned_command if not raw else command
+    )
+    
+    return {
+        "is_raw_command": raw,
+        "instant_danger_level": danger,
+        "simulation": sim.to_dict(),
+        "sandbox": sandbox_result.to_dict(),
+        "recommendation": (
+            "BLOCK" if danger == "CRITICAL" else
+            "WARN_AND_SANDBOX" if danger in ("HIGH", "MEDIUM") else
+            "ALLOW"
+        ),
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
-    print("\n🛡️  BashGuard API Server starting...")
+    print("\n\U0001f6e1\ufe0f  BashGuard API Server starting...")
     print("   Docs: http://localhost:8000/docs")
     print("   Dashboard data: http://localhost:8000/stats")
-    print("   History: http://localhost:8000/history\n")
+    print("   History: http://localhost:8000/history")
+    print("   Sandbox: POST http://localhost:8000/sandbox")
+    print("   Full Analysis: POST http://localhost:8000/analyze\n")
     uvicorn.run(app, host="0.0.0.0", port=8000)
