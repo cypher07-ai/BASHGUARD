@@ -475,6 +475,100 @@ def analyze(req: AnalyzeRequest):
     }
 
 
+@app.get("/demo")
+def demo():
+    """
+    DEMO ENDPOINT — For judges / presentations.
+    
+    Runs 5 pre-built scenarios and returns results.
+    Judges don't have to type anything — just open this URL.
+    
+    GET /demo — returns all demo results in one shot.
+    """
+    demo_scenarios = [
+        {
+            "name": "The Accidental Delete",
+            "description": "Junior dev tries to clean up but wipes everything",
+            "command": "rm -rf .",
+            "category": "Data Loss",
+        },
+        {
+            "name": "The Force Push Disaster",
+            "description": "Developer overwrites teammate's work on main branch",
+            "command": "git push --force origin main",
+            "category": "Collaboration Risk",
+        },
+        {
+            "name": "The Permission Nightmare",
+            "description": "Sysadmin makes all system files world-writable",
+            "command": "chmod 777 /etc/passwd",
+            "category": "Security Breach",
+        },
+        {
+            "name": "The Database Wipe",
+            "description": "Someone runs a destructive SQL query on production",
+            "command": "DROP TABLE users;",
+            "category": "Data Loss",
+        },
+        {
+            "name": "The Safe Command",
+            "description": "Normal everyday command — should pass through",
+            "command": "ls -la",
+            "category": "Safe Operation",
+        },
+    ]
+
+    results = []
+    for scenario in demo_scenarios:
+        cmd = scenario["command"]
+
+        # Instant detection
+        raw = is_raw_command(cmd)
+        danger = detect_danger_level(cmd)
+
+        # Sandbox
+        sandbox_result = simulate_in_sandbox(cmd)
+
+        action = "BLOCKED" if danger == "CRITICAL" else (
+            "WARNING" if danger in ("HIGH", "MEDIUM") else "ALLOWED"
+        )
+
+        results.append({
+            "scenario": scenario["name"],
+            "description": scenario["description"],
+            "command": cmd,
+            "category": scenario["category"],
+            "is_raw_command": raw,
+            "danger_level": danger,
+            "action_taken": action,
+            "sandbox": {
+                "target_exists": sandbox_result.target_exists,
+                "files_before": sandbox_result.before_file_count,
+                "files_after": sandbox_result.after_file_count,
+                "files_deleted": len(sandbox_result.files_deleted),
+                "data_destroyed": sandbox_result.data_destroyed_readable,
+                "destruction_pct": sandbox_result.destruction_percentage,
+                "is_catastrophic": sandbox_result.is_catastrophic,
+                "impact": sandbox_result.impact_summary,
+            },
+        })
+
+    blocked = sum(1 for r in results if r["action_taken"] in ("BLOCKED", "WARNING"))
+    safe_passed = sum(1 for r in results if r["action_taken"] == "ALLOWED")
+
+    return {
+        "title": "BashGuard Live Demo",
+        "tagline": "The AI agent that shows you what will happen - before it happens.",
+        "scenarios": results,
+        "summary": {
+            "total_scenarios": len(results),
+            "threats_caught": blocked,
+            "safe_commands_passed": safe_passed,
+            "protection_rate": f"{100 * blocked // max(len(results), 1)}%",
+        },
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     print("\n\U0001f6e1\ufe0f  BashGuard API Server starting...")

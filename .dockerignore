@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+audit_log.json
+*.log
+.git/
+check_syntax.ps1
+test_sandbox.py
+demo_sandbox.py
+test_hook.ps1
