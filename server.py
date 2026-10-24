@@ -24,6 +24,7 @@ from simulator import simulate_command, SimulationResult
 from executor import execute_command, get_audit_log, is_hard_blocked
 from rollback import generate_rollback
 from sandbox import simulate_in_sandbox, is_raw_command, detect_danger_level
+from coder import generate_code, save_code, run_code, is_coding_request, detect_language
 
 # ============================================================
 #  APP SETUP
@@ -69,6 +70,13 @@ class RollbackRequest(BaseModel):
     """Request body for /rollback endpoint."""
     command: str
     context: str = ""
+
+
+class CodeRequest(BaseModel):
+    """Request body for /code endpoint."""
+    request: str                    # Natural language: "write a snake game in python"
+    language: Optional[str] = ""   # Optional language override
+    auto_run: bool = False          # Auto-run after generating (Python/JS/bash only)
 
 
 # ============================================================
@@ -569,12 +577,78 @@ def demo():
     }
 
 
+@app.post("/code")
+def code(req: CodeRequest):
+    """
+    CODING ENGINE ENDPOINT — Generate complete, working code in any language.
+
+    Send a natural language request and get back production-quality code.
+
+    Example request:
+        POST /code
+        {"request": "write a snake game in python", "auto_run": false}
+
+    Example response:
+        {
+            "request": "write a snake game in python",
+            "language": "Python",
+            "filename": "snake_game_143022.py",
+            "code": "import pygame\\n...(full game code)...",
+            "explanation": "A playable Snake game using pygame...",
+            "how_to_run": "python snake_game_143022.py",
+            "dependencies": ["pygame"],
+            "file_saved_to": "/path/to/generated_code/snake_game_143022.py"
+        }
+    """
+    if not req.request.strip():
+        raise HTTPException(status_code=400, detail="Request cannot be empty")
+
+    # Generate the code
+    result = generate_code(req.request, req.language or "")
+
+    if result.error and not result.code:
+        raise HTTPException(status_code=500, detail=f"Code generation failed: {result.error}")
+
+    # Save to file
+    save_code(result)
+
+    # Optionally run it
+    if req.auto_run:
+        run_code(result, timeout=10)
+
+    return result.to_dict()
+
+
+@app.post("/code/detect")
+def detect_code_request(req: SimulateRequest):
+    """
+    Quick check: Is this input a coding request?
+    Useful for frontend to decide whether to show the code editor UI.
+
+    Example:
+        POST /code/detect
+        {"command": "write me a todo app in python"}
+
+    Response:
+        {"is_coding_request": true, "detected_language": "Python", "extension": ".py"}
+    """
+    is_code = is_coding_request(req.command)
+    lang_name, ext, run_cmd = detect_language(req.command) if is_code else ("", "", "")
+    return {
+        "input": req.command,
+        "is_coding_request": is_code,
+        "detected_language": lang_name,
+        "extension": ext,
+        "run_command_template": run_cmd or "",
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     print("\n\U0001f6e1\ufe0f  BashGuard API Server starting...")
-    print("   Docs: http://localhost:8000/docs")
-    print("   Dashboard data: http://localhost:8000/stats")
-    print("   History: http://localhost:8000/history")
-    print("   Sandbox: POST http://localhost:8000/sandbox")
-    print("   Full Analysis: POST http://localhost:8000/analyze\n")
+    print("   Docs:          http://localhost:8000/docs")
+    print("   Sandbox:       POST http://localhost:8000/sandbox")
+    print("   Full Analysis: POST http://localhost:8000/analyze")
+    print("   Code Engine:   POST http://localhost:8000/code")
+    print("   Judge Demo:    GET  http://localhost:8000/demo\n")
     uvicorn.run(app, host="0.0.0.0", port=8000)

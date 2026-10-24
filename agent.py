@@ -27,6 +27,10 @@ from sandbox import (
     is_raw_command, detect_danger_level, simulate_in_sandbox,
     format_sandbox_result, extract_target_paths, SandboxResult,
 )
+from coder import (
+    is_coding_request, generate_code, save_code, run_code,
+    format_code_result, detect_language,
+)
 
 load_dotenv()
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
@@ -112,13 +116,13 @@ def run_interactive():
     """Interactive terminal mode for testing and demos."""
     
     print("\n" + "=" * 62)
-    print("  🛡️  BashGuard — Simulate Before You Execute")
-    print("  The AI agent that shows consequences BEFORE acting.")
+    print("  \U0001f6e1\ufe0f  BashGuard \u2014 AI Agent")
+    print("  Simulate. Code. Protect.")
     print("=" * 62)
-    print("  Type a command in plain English OR paste a raw command.")
-    print("  Raw commands (rm, del, chmod...) trigger SANDBOX mode.")
-    print("  Type 'history' to see past actions.")
-    print("  Type 'quit' to exit.")
+    print("  Commands: raw terminal commands  -> SANDBOX + simulation")
+    print("  System:   natural language       -> AI risk analysis")
+    print("  Code:     'write me a game...'   -> generates + saves code")
+    print("  Type 'history' to see past actions | 'quit' to exit.")
     print("=" * 62)
     
     while True:
@@ -149,13 +153,60 @@ def run_interactive():
                     risk = entry.get("risk_level", "?")
                     print(f"  [{ts}] {action:12} | Risk: {risk:8} | {cmd}")
             continue
+
+        # ── CODING REQUEST DETECTION (check BEFORE raw command check) ──
+        if is_coding_request(user_input):
+            lang_name, _, _ = detect_language(user_input)
+            print("")
+            print("  " + "=" * 58)
+            print(f"  \U0001f4bb CODING MODE \u2014 Generating {lang_name} code...")
+            print(f"  Request: {user_input}")
+            print("  " + "=" * 58)
+            print("  (this takes a few seconds...)")
+            print("")
+
+            code_result = generate_code(user_input)
+
+            if code_result.error and not code_result.code:
+                print(f"  \u274c Generation failed: {code_result.error}")
+                continue
+
+            # Save to file
+            save_code(code_result)
+
+            # Show result
+            print(format_code_result(code_result, show_full_code=True))
+
+            # Offer to run it
+            if code_result.file_saved_to:
+                ext = os.path.splitext(code_result.filename)[1].lower()
+                runnable = [".py", ".js", ".sh", ".rb", ".go", ".php", ".lua"]
+                if ext in runnable:
+                    try:
+                        print(f"\n  \U0001f680 Auto-run this code? (y/n): ", end="", flush=True)
+                        run_choice = input().strip().lower()
+                        if run_choice in ("y", "yes"):
+                            print(f"\n  Running {code_result.filename}...")
+                            run_code(code_result, timeout=15)
+                            if code_result.run_success:
+                                print(f"\n  \u2705 OUTPUT:\n")
+                                for line in code_result.run_output.split("\n"):
+                                    print(f"    {line}")
+                            else:
+                                print(f"\n  \u26a0\ufe0f  Run result: {code_result.run_output}")
+                    except (KeyboardInterrupt, EOFError):
+                        pass
+
+            print(f"\n  \U0001f4be Saved: {code_result.file_saved_to}")
+            print(f"  \U0001f4ac Run with: {code_result.how_to_run or 'see file'}")
+            continue
         
         # ── RAW COMMAND DETECTION ──
         if is_raw_command(user_input):
             danger = detect_danger_level(user_input)
             print("")
             print("  " + "!" * 58)
-            print(f"  !! RAW COMMAND DETECTED — Danger: {danger}")
+            print(f"  !! RAW COMMAND DETECTED \u2014 Danger: {danger}")
             print(f"  !! Command: {user_input}")
             print("  " + "!" * 58)
             print("")
