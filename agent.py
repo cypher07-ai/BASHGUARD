@@ -22,6 +22,7 @@ from google.genai import types
 
 from simulator import simulate_command, format_simulation, SimulationResult
 from executor import execute_command, format_execution_result, get_audit_log
+from rollback import generate_rollback, format_rollback
 
 load_dotenv()
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
@@ -184,6 +185,8 @@ def run_interactive():
             print(format_execution_result(result))
             if result["success"]:
                 print(f"\n  ✅ DONE — Command ran successfully.")
+                rb = generate_rollback(sim.planned_command)
+                print(format_rollback(rb))
             elif result["was_blocked"]:
                 print(f"\n  🚨 BLOCKED — This command is permanently blocked for safety.")
             else:
@@ -200,6 +203,8 @@ def run_interactive():
             print(format_execution_result(result))
             if result["success"]:
                 print(f"\n  ✅ DONE — Safer command ran successfully.")
+                rb = generate_rollback(sim.safer_command)
+                print(format_rollback(rb))
             else:
                 print(f"\n  ❌ FAILED — {result['error']}")
             
