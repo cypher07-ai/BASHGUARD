@@ -25,6 +25,10 @@ from executor import execute_command, get_audit_log, is_hard_blocked
 from rollback import generate_rollback
 from sandbox import simulate_in_sandbox, is_raw_command, detect_danger_level
 from coder import generate_code, save_code, run_code, is_coding_request, detect_language
+from auth import (
+    register_user, login_user, logout_user,
+    get_auth_status, validate_token, change_password, require_auth,
+)
 
 # ============================================================
 #  APP SETUP
@@ -79,6 +83,24 @@ class CodeRequest(BaseModel):
     auto_run: bool = False          # Auto-run after generating (Python/JS/bash only)
 
 
+# ── Auth Models ──
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class LogoutRequest(BaseModel):
+    token: str
+
+class ChangePasswordRequest(BaseModel):
+    token: str
+    old_password: str
+    new_password: str
+
+
 # ============================================================
 #  ENDPOINTS
 # ============================================================
@@ -92,6 +114,116 @@ def root():
         "tagline": "Simulate before you execute.",
         "version": "1.0.0",
     }
+
+
+# ============================================================
+#  AUTH ENDPOINTS
+# ============================================================
+
+@app.get("/auth/status")
+def auth_status():
+    """
+    Check auth setup status.
+    Frontend calls this first to decide: show register page or login page?
+
+    Response:
+        {"is_registered": false, "setup_required": true, ...}   -> show Register
+        {"is_registered": true,  "setup_required": false, ...}  -> show Login
+    """
+    return get_auth_status()
+
+
+@app.post("/auth/register")
+def auth_register(req: RegisterRequest):
+    """
+    First-time setup — register username + password.
+    Only works ONCE. After registration, use /auth/login.
+
+    Example:
+        POST /auth/register
+        {"username": "cypher07", "password": "mypassword123"}
+
+    Response:
+        {"success": true, "message": "User registered", "username": "cypher07"}
+    """
+    result = register_user(req.username, req.password)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+@app.post("/auth/login")
+def auth_login(req: LoginRequest):
+    """
+    Login with username + password. Returns a session token.
+    Frontend must store this token and send it in the Authorization header.
+
+    Example:
+        POST /auth/login
+        {"username": "cypher07", "password": "mypassword123"}
+
+    Response:
+        {
+            "success": true,
+            "token": "abc123...",
+            "username": "cypher07",
+            "expires_at": "2026-10-25T...",
+            "expires_in_hours": 24
+        }
+
+    Usage after login:
+        Add header to all requests: Authorization: Bearer <token>
+    """
+    result = login_user(req.username, req.password)
+    if not result["success"]:
+        raise HTTPException(status_code=401, detail=result["error"])
+    return result
+
+
+@app.post("/auth/logout")
+def auth_logout(req: LogoutRequest):
+    """
+    Logout — invalidates the session token.
+
+    Example:
+        POST /auth/logout
+        {"token": "abc123..."}
+    """
+    return logout_user(req.token)
+
+
+@app.get("/auth/me")
+def auth_me(authorization: Optional[str] = None, token: Optional[str] = None):
+    """
+    Get current user info.
+
+    Pass token as:
+      - Header:      Authorization: Bearer <token>
+      - Query param: /auth/me?token=abc123
+    """
+    resolved_token = token or ""
+    if not resolved_token and authorization and authorization.startswith("Bearer "):
+        resolved_token = authorization[7:]
+
+    result = validate_token(resolved_token)
+    if not result["valid"]:
+        raise HTTPException(status_code=401, detail=result["error"])
+    return result
+
+
+@app.post("/auth/change-password")
+def auth_change_password(req: ChangePasswordRequest):
+    """
+    Change password. Requires current session token + old password.
+
+    Example:
+        POST /auth/change-password
+        {"token": "abc...", "old_password": "old123", "new_password": "new456"}
+    """
+    result = change_password(req.token, req.old_password, req.new_password)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
 
 
 @app.post("/simulate")
