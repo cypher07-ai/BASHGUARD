@@ -38,5 +38,85 @@
     "stdout_preview": "",
     "stderr_preview": "",
     "timestamp": "2026-10-24T15:09:49.626364"
+  },
+  {
+    "action": "EXECUTED",
+    "command": "del /s *.jpg *.png *.jpeg *.gif *.bmp",
+    "risk_level": "HIGH",
+    "return_code": 0,
+    "simulation_summary": "\n==============================================================\n  \ud83d\udee1\ufe0f  BashGuard \u2014 SIMULATION REPORT (DRY RUN)\n==============================================================\n\n  \ud83d\udcdd Your Request: \"delete ",
+    "stdout_preview": "",
+    "stderr_preview": "Could Not Find C:\\Users\\ayan kaushik\\.gemini\\antigravity\\scratch\\ai-agent-hackathon\\*.jpg\n",
+    "timestamp": "2026-10-24T15:11:25.321774"
+  },
+  {
+    "action": "EXECUTED",
+    "command": "rmdir /s /q gallery",
+    "risk_level": "HIGH",
+    "return_code": 2,
+    "simulation_summary": "\n==============================================================\n  \ud83d\udee1\ufe0f  BashGuard \u2014 SIMULATION REPORT (DRY RUN)\n==============================================================\n\n  \ud83d\udcdd Your Request: \"delete ",
+    "stdout_preview": "",
+    "stderr_preview": "The system cannot find the file specified.\n",
+    "timestamp": "2026-10-24T15:12:57.252212"
+  },
+  {
+    "action": "EXECUTED",
+    "command": "rmdir /s /q Gallery",
+    "risk_level": "HIGH",
+    "return_code": 2,
+    "simulation_summary": "\n==============================================================\n  \ud83d\udee1\ufe0f  BashGuard \u2014 SIMULATION REPORT (DRY RUN)\n==============================================================\n\n  \ud83d\udcdd Your Request: \"delete ",
+    "stdout_preview": "",
+    "stderr_preview": "The system cannot find the file specified.\n",
+    "timestamp": "2026-10-24T15:13:23.099943"
+  },
+  {
+    "action": "EXECUTED",
+    "command": "rmdir /s /q \"C:\\Users\\ayan kaushik\\Desktop\\test-delete-me\"",
+    "risk_level": "HIGH",
+    "return_code": 0,
+    "simulation_summary": "",
+    "stdout_preview": "",
+    "stderr_preview": "",
+    "timestamp": "2026-10-24T15:14:12.492546"
+  },
+  {
+    "action": "EXECUTED",
+    "command": "del a.txt",
+    "risk_level": "LOW",
+    "return_code": 0,
+    "simulation_summary": "",
+    "stdout_preview": "",
+    "stderr_preview": "Could Not Find C:\\Users\\ayan kaushik\\.gemini\\antigravity\\scratch\\ai-agent-hackathon\\a.txt\n",
+    "timestamp": "2026-10-24T15:17:04.215581"
+  },
+  {
+    "action": "EXECUTED",
+    "command": "dir /A",
+    "risk_level": "LOW",
+    "return_code": 0,
+    "simulation_summary": "",
+    "stdout_preview": " Volume in drive C is Windows\n Volume Serial Number is 8076-7C95\n\n Directory of C:\\Users\\ayan kaushik\\.gemini\\antigravity\\scratch\\ai-agent-hackathon\n\n24-10-2026  15:06    <DIR>          .\n23-10-2026  ",
+    "stderr_preview": "",
+    "timestamp": "2026-10-24T15:17:43.474973"
+  },
+  {
+    "action": "EXECUTED",
+    "command": "type nul > \"C:\\Users\\ayan kaushik\\Desktop\\b.txt\"",
+    "risk_level": "LOW",
+    "return_code": 0,
+    "simulation_summary": "",
+    "stdout_preview": "",
+    "stderr_preview": "",
+    "timestamp": "2026-10-24T15:18:55.828389"
+  },
+  {
+    "action": "EXECUTED",
+    "command": "type nul > \"C:\\Users\\ayan kaushik\\Desktop\\a.txt\" & type nul > \"C:\\Users\\ayan kaushik\\Desktop\\b.txt\" & type nul > \"C:\\Users\\ayan kaushik\\Desktop\\c.txt\"",
+    "risk_level": "LOW",
+    "return_code": 0,
+    "simulation_summary": "",
+    "stdout_preview": "",
+    "stderr_preview": "",
+    "timestamp": "2026-10-24T15:20:15.866982"
   }
 ]

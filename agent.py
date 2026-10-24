@@ -154,13 +154,16 @@ def run_interactive():
         # Step 3: GET APPROVAL (if needed)
         if not sim.requires_approval:
             # Low risk — auto-execute
-            print("  ✅ Low risk detected. Auto-executing...")
+            print("\n  ✅ Low risk detected. Auto-executing...")
+            print(f"  Running: {sim.planned_command}")
             result = execute_command(
                 command=sim.planned_command,
                 approved=True,
                 risk_level=sim.risk_level,
             )
             print(format_execution_result(result))
+            if result["success"]:
+                print("  ✅ DONE — Command executed successfully on your system.")
             continue
         
         # Ask for approval
