@@ -174,7 +174,7 @@ def run_interactive():
             choice = input("  🔐 Your choice (approve / cancel): ").strip().lower()
         
         if choice in ("approve", "a", "yes", "y"):
-            print("\n  ⚡ Executing original command...")
+            print(f"\n  ⚡ Executing: {sim.planned_command}")
             result = execute_command(
                 command=sim.planned_command,
                 approved=True,
@@ -182,6 +182,12 @@ def run_interactive():
                 simulation_summary=format_simulation(sim)[:200],
             )
             print(format_execution_result(result))
+            if result["success"]:
+                print(f"\n  ✅ DONE — Command ran successfully.")
+            elif result["was_blocked"]:
+                print(f"\n  🚨 BLOCKED — This command is permanently blocked for safety.")
+            else:
+                print(f"\n  ❌ FAILED — {result['error']}")
             
         elif choice in ("safer", "safe", "s") and sim.safer_command:
             print(f"\n  ⚡ Executing safer alternative: {sim.safer_command}")
@@ -192,6 +198,10 @@ def run_interactive():
                 simulation_summary=f"Safer version of: {sim.planned_command}",
             )
             print(format_execution_result(result))
+            if result["success"]:
+                print(f"\n  ✅ DONE — Safer command ran successfully.")
+            else:
+                print(f"\n  ❌ FAILED — {result['error']}")
             
         else:
             print("\n  ❌ Action cancelled. Nothing was executed.")
