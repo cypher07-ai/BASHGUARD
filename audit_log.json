@@ -1,0 +1,42 @@
+[
+  {
+    "action": "EXECUTED",
+    "command": "del /s /q *module6* *module_6* 2>nul || echo No matching files found",
+    "risk_level": "MEDIUM",
+    "return_code": 0,
+    "simulation_summary": "\n==============================================================\n  \ud83d\udee1\ufe0f  BashGuard \u2014 SIMULATION REPORT (DRY RUN)\n==============================================================\n\n  \ud83d\udcdd Your Request: \"delete ",
+    "stdout_preview": "",
+    "stderr_preview": "",
+    "timestamp": "2026-10-24T15:05:20.376529"
+  },
+  {
+    "action": "EXECUTED",
+    "command": "echo BashGuard works > hello.txt",
+    "risk_level": "LOW",
+    "return_code": 0,
+    "simulation_summary": "",
+    "stdout_preview": "",
+    "stderr_preview": "",
+    "timestamp": "2026-10-24T15:06:14.384878"
+  },
+  {
+    "action": "EXECUTED",
+    "command": "del /s /q C:\\Users\\ayan kaushik\\Pictures\\*.*",
+    "risk_level": "CRITICAL",
+    "return_code": 1,
+    "simulation_summary": "\n==============================================================\n  \ud83d\udee1\ufe0f  BashGuard \u2014 SIMULATION REPORT (DRY RUN)\n==============================================================\n\n  \ud83d\udcdd Your Request: \"delete ",
+    "stdout_preview": "",
+    "stderr_preview": "The system cannot find the path specified.\n",
+    "timestamp": "2026-10-24T15:08:08.029023"
+  },
+  {
+    "action": "EXECUTED",
+    "command": "mkdir \"C:\\Users\\ayan kaushik\\Desktop\\test-bashguard\"",
+    "risk_level": "LOW",
+    "return_code": 0,
+    "simulation_summary": "",
+    "stdout_preview": "",
+    "stderr_preview": "",
+    "timestamp": "2026-10-24T15:09:49.626364"
+  }
+]

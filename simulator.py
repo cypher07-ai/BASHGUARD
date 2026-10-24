@@ -230,6 +230,8 @@ RULES:
 - For destructive commands (rm, del, drop, format), ALWAYS mark as HIGH or CRITICAL
 - Consider: cascade failures, data dependencies, service disruptions
 - If the command is safe (like ls, echo, cat), mark as LOW risk
+- IMPORTANT: On Windows, ALWAYS wrap file paths that contain spaces in double quotes. For example: del /s /q "C:\\Users\\my user\\Pictures\\*.*"
+- IMPORTANT: For the safer_command as well, always quote paths with spaces
 """
 
 
