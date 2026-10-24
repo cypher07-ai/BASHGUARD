@@ -188,5 +188,12 @@
     "stdout_preview": "",
     "stderr_preview": "",
     "timestamp": "2026-10-24T15:39:47.175727"
+  },
+  {
+    "action": "REJECTED",
+    "command": "rm -rf",
+    "risk_level": "N/A",
+    "reason": "User did not approve",
+    "timestamp": "2026-10-24T18:43:13.578312"
   }
 ]
