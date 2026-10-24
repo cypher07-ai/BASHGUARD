@@ -1,6 +1,7 @@
 google-genai
 duckduckgo-search
-streamlit
 beautifulsoup4
 requests
 python-dotenv
+fastapi
+uvicorn
