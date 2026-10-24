@@ -1,83 +1,109 @@
 # 🛡️ BashGuard — Simulate Before You Execute
 
-An AI agent with a **simulate-first architecture** that predicts the consequences of system commands **before** executing them.
+An AI-powered safety layer that **intercepts dangerous commands in real-time**, simulates their blast radius, and prevents catastrophic mistakes — all before a single byte is touched.
 
 > *"The AI agent that shows you what will happen — before it happens."*
 
-## The Problem
+## Features
 
-AI agents that execute system commands are dangerous. A simple misunderstanding can lead to:
-- Deleted files that can't be recovered
-- Crashed services and databases
-- Security vulnerabilities
-- Data loss at scale
-
-**BashGuard** solves this by adding a **simulation layer** between intent and action.
+- 🔍 **Real-Time Terminal Protection** — Hooks into PowerShell and intercepts dangerous commands BEFORE they execute
+- 📊 **Blast Radius Analysis** — Shows exactly what files, data, and processes will be affected
+- 🎯 **4-Level Risk Scoring** — CRITICAL / HIGH / MEDIUM / LOW with reasons
+- 💡 **Safer Alternatives** — AI suggests less risky commands that achieve the same goal
+- 🔄 **Auto-Rollback** — Generates undo commands for every executed action
+- 🚨 **Hard Block List** — Catastrophic commands are blocked no matter what
+- 📜 **Audit Trail** — Every action is permanently logged with timestamps
+- ⚖️ **Side-by-Side Comparison** — Shows what happens WITH vs WITHOUT BashGuard
+- 🌐 **REST API** — Full API for frontend/dashboard integration
 
 ## Architecture
 
 ```
-User Request → Plan Command → SIMULATE (Dry Run) → Preview → Approve/Reject → Execute
+REAL-TIME MODE (PowerShell Hook):
+  User types command → Hits Enter → BashGuard intercepts →
+  Simulation runs → Warning shown → User approves/cancels → 
+  Command executes or is blocked
+
+API MODE (Web Frontend):
+  Frontend → POST /simulate → Blast radius returned →
+  User approves → POST /execute → Command runs →
+  POST /rollback → Undo command generated
 ```
 
-Every command goes through two phases:
-1. **SIMULATE** — LLM analyzes the command + real filesystem state to predict full blast radius
-2. **COMMIT** — Only executes after explicit user approval
+## Quick Start
 
-## Features
-
-- 🔍 **Blast Radius Analysis** — Shows exactly what files, directories, and processes will be affected
-- 📊 **Risk Scoring** — CRITICAL / HIGH / MEDIUM / LOW with detailed reasons
-- 💡 **Safer Alternatives** — Suggests less risky commands when possible
-- 🚨 **Hard Block List** — Some commands are blocked no matter what (`rm -rf /`, `format c:`, etc.)
-- 📜 **Audit Log** — Every action (executed, rejected, blocked) is permanently logged
-- 🧪 **Evaluation Mode** — Batch test to prove simulation catches dangerous commands
-
-## Setup
-
+### 1. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
+### 2. Set API Key
 Create a `.env` file:
 ```
 GEMINI_API_KEY=your_key_here
 ```
 
-## Usage
+### 3. Start the Server
+```bash
+python server.py
+```
 
-### Interactive Mode (Terminal)
+### 4. Activate Real-Time Terminal Protection
+Open a NEW PowerShell window:
+```powershell
+cd path\to\ai-agent-hackathon
+. .\bashguard_hook.ps1
+```
+
+Now type any command — BashGuard is watching. Try:
+- `dir` → Runs normally (safe)
+- `rm -rf /` → BLOCKED instantly
+- `del /s /q *.*` → Simulation + warning + approve/cancel
+- `git push --force` → Caught, safer alternative offered
+
+### 5. CLI Mode (Alternative)
 ```bash
 python agent.py
 ```
 
-### Evaluation Mode (Batch Test)
+### 6. Evaluation Mode
 ```bash
 python agent.py --eval
 ```
 
-### API Mode (For Frontend Integration)
-```python
-from agent import get_simulation, approve_and_execute, reject_action
+## API Endpoints
 
-# Step 1: Get simulation preview
-sim = get_simulation("Delete all log files older than 30 days")
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/simulate` | POST | Simulate a command, get blast radius |
+| `/execute` | POST | Execute after approval |
+| `/reject` | POST | Log a rejected command |
+| `/rollback` | POST | Generate undo command |
+| `/history` | GET | Full audit trail |
+| `/stats` | GET | Dashboard statistics |
+| `/compare` | GET | WITH vs WITHOUT BashGuard comparison |
+| `/check` | GET | Quick block-list check |
 
-# Step 2: Show preview to user (frontend renders sim dict)
+## File Structure
 
-# Step 3: User approves or rejects
-result = approve_and_execute(
-    command=sim["planned_command"],
-    risk_level=sim["risk_level"],
-    use_safer=True,
-    safer_command=sim["safer_command"],
-)
+```
+├── server.py           ← FastAPI backend (8 endpoints)
+├── simulator.py        ← LLM + filesystem simulation engine
+├── executor.py         ← Safe execution + audit logging
+├── rollback.py         ← Auto-generate undo commands
+├── agent.py            ← CLI mode + evaluation mode
+├── bashguard_hook.ps1  ← Real-time PowerShell interceptor
+├── audit_log.json      ← Persistent action history
+├── .env                ← API keys (not tracked)
+├── requirements.txt    ← Dependencies
+└── README.md           ← This file
 ```
 
 ## Tech Stack
 
-- **LLM:** Google Gemini API (gemini-3.5-flash)
-- **Language:** Python
+- **LLM:** Google Gemini API (gemini-3.5-flash-lite)
+- **Backend:** Python + FastAPI
+- **Terminal Hook:** PowerShell PSReadLine
 - **Analysis:** Real filesystem inspection + LLM consequence prediction
 
 ## Team
