@@ -16,8 +16,10 @@ An AI-powered safety layer that **intercepts dangerous commands in real-time**, 
 - **Hard Block List** — Catastrophic commands are blocked no matter what
 - **Audit Trail** — Every action is permanently logged with timestamps
 - **Side-by-Side Comparison** — Shows what happens WITH vs WITHOUT BashGuard
+- **Code Generation Engine** — Write working code in any language from natural language prompts
+- **Authentication System** — Register/Login with hashed passwords + session tokens
 - **Docker Support** — Containerized deployment ready
-- **REST API** — 11 endpoints for frontend/dashboard integration
+- **REST API** — 20 endpoints for frontend/dashboard integration
 - **Cross-Platform** — Works on Windows, Linux, and macOS
 
 ## Architecture
@@ -122,6 +124,8 @@ docker run -p 8000:8000 -e GEMINI_API_KEY=your_key bashguard
 
 ## API Endpoints
 
+### Core Simulation (6 endpoints)
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/simulate` | POST | AI-powered simulation — blast radius analysis |
@@ -130,13 +134,42 @@ docker run -p 8000:8000 -e GEMINI_API_KEY=your_key bashguard
 | `/execute` | POST | Execute after user approval |
 | `/reject` | POST | Log a rejected command |
 | `/rollback` | POST | Generate undo command |
+
+### Authentication (6 endpoints)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/auth/status` | GET | Check if user is registered + if token is valid |
+| `/auth/register` | POST | First-time setup — set username + password |
+| `/auth/login` | POST | Login — returns a session token |
+| `/auth/logout` | POST | Invalidate session token |
+| `/auth/me` | GET | Get current user info (requires token) |
+| `/auth/change-password` | POST | Change password (requires current password) |
+
+### Code Generation (2 endpoints)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/code` | POST | Generate working code in any language from natural language |
+| `/code/detect` | POST | Detect programming language from a prompt |
+
+### Data & Dashboard (5 endpoints)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Health check — returns server info |
 | `/history` | GET | Full audit trail |
 | `/stats` | GET | Dashboard statistics |
 | `/compare` | GET | WITH vs WITHOUT BashGuard comparison |
 | `/check` | GET | Quick block-list check |
+
+### Demo (1 endpoint)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
 | `/demo` | GET | **Judge demo** — 5 pre-built scenarios, no input needed |
 
-### Power Endpoint: POST `/analyze`
+### Example: POST `/analyze`
 ```json
 // Request
 {"command": "rm -rf ~/projects"}
@@ -145,7 +178,7 @@ docker run -p 8000:8000 -e GEMINI_API_KEY=your_key bashguard
 {
   "is_raw_command": true,
   "instant_danger_level": "HIGH",
-  "simulation": { "risk_level": "CRITICAL", "risk_score": 95, "..." },
+  "simulation": { "risk_level": "CRITICAL", "risk_score": 95 },
   "sandbox": {
     "before_file_count": 1547,
     "after_file_count": 0,
@@ -158,26 +191,71 @@ docker run -p 8000:8000 -e GEMINI_API_KEY=your_key bashguard
 }
 ```
 
-### Demo Endpoint: GET `/demo`
-Opens in browser — shows 5 scenarios with results. Judges don't type anything.
+### Example: POST `/auth/register`
+```json
+// Request
+{"username": "admin", "password": "SecurePass123"}
+
+// Response
+{"status": "registered", "username": "admin"}
+```
+
+### Example: POST `/auth/login`
+```json
+// Request
+{"username": "admin", "password": "SecurePass123"}
+
+// Response
+{"status": "success", "token": "a1b2c3d4...", "username": "admin"}
+```
+
+### Example: POST `/code`
+```json
+// Request
+{"prompt": "write a snake game in python"}
+
+// Response
+{
+  "language": "python",
+  "filename": "snake_game.py",
+  "code": "import pygame...",
+  "explanation": "A complete Snake game using pygame..."
+}
+```
 
 ## File Structure
 
 ```
-├── server.py             <- FastAPI backend (11 endpoints)
+├── server.py             <- FastAPI backend (20 endpoints)
 ├── simulator.py          <- LLM + filesystem simulation engine
 ├── sandbox.py            <- Virtual filesystem sandbox (BEFORE/AFTER)
 ├── executor.py           <- Safe execution + audit logging
 ├── rollback.py           <- Auto-generate undo commands
+├── coder.py              <- Code generation engine (any language)
+├── auth.py               <- Authentication (SQLite + hashed passwords)
 ├── agent.py              <- CLI: interactive + eval (20 cases) + sandbox demo
 ├── bashguard_hook.ps1    <- Real-time PowerShell interceptor (Windows)
 ├── bashguard_hook.sh     <- Real-time Bash interceptor (Linux/Mac)
 ├── Dockerfile            <- Container deployment
 ├── .dockerignore         <- Docker build exclusions
-├── audit_log.json        <- Persistent action history
 ├── .env                  <- API keys (not tracked)
 ├── requirements.txt      <- Dependencies
 └── README.md             <- This file
+```
+
+## Terminal Hooks — How They Work
+
+### Windows (PowerShell)
+Uses **PSReadLine `PreCommandHandler`** to intercept every command before PowerShell runs it. Calls the BashGuard API, shows risk warnings with color-coded output, and requires user approval for dangerous commands.
+
+### Linux / Mac (Bash)
+Uses **command override functions** — wraps dangerous commands (`rm`, `chmod`, `kill`, `git`, `dd`, `mkfs`, `systemctl`, `iptables`, etc.) with bash functions that call BashGuard first. Safe commands (`ls`, `cat`, `cd`, `pwd`, etc.) pass through unmodified.
+
+Enable/disable at any time:
+```bash
+bashguard-on       # Activate protection
+bashguard-off      # Deactivate
+bashguard-status   # Check if active
 ```
 
 ## Evaluation Results
@@ -197,8 +275,10 @@ Opens in browser — shows 5 scenarios with results. Judges don't type anything.
 
 - **LLM:** Google Gemini API (gemini-3.5-flash-lite)
 - **Backend:** Python + FastAPI
+- **Auth:** SQLite + SHA-256 salted password hashing + session tokens
 - **Sandbox:** Virtual filesystem scanner + simulated execution
-- **Terminal Hook:** PowerShell PSReadLine (Win) + Bash DEBUG trap (Linux/Mac)
+- **Code Gen:** Gemini-powered multi-language code generator
+- **Terminal Hook:** PowerShell PSReadLine (Win) + Bash command overrides (Linux/Mac)
 - **Container:** Docker
 - **Analysis:** Real filesystem inspection + LLM consequence prediction
 

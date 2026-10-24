@@ -12,6 +12,15 @@ agent_env/
 # API keys & secrets
 .env
 
+# Database (user-specific, generated at runtime)
+bashguard_auth.db
+
+# Audit log (generated at runtime)
+audit_log.json
+
+# Generated code output
+generated_code/
+
 # IDE
 .vscode/
 .idea/
@@ -19,9 +28,6 @@ agent_env/
 # OS
 Thumbs.db
 .DS_Store
-
-# Streamlit
-.streamlit/
 
 # Logs
 *.log
