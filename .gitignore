@@ -1,33 +1,35 @@
-# Byte-compiled
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
-
-# Virtual environments
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
 venv/
-env/
-agent_env/
 .venv/
+env/
 
-# API keys & secrets
+# Environment
 .env
+.env.local
 
-# Database (user-specific, generated at runtime)
-bashguard_auth.db
-
-# Audit log (generated at runtime)
+# Audit log (auto-generated, can be large)
 audit_log.json
 
-# Generated code output
-generated_code/
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
 
 # IDE
 .vscode/
 .idea/
-
-# OS
-Thumbs.db
-.DS_Store
-
-# Logs
-*.log
+*.swp
+*.swo

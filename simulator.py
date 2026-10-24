@@ -24,6 +24,13 @@ from google.genai import types
 
 load_dotenv()
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+
+# Fix SSL errors on networks with self-signed/proxy certificates
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
+os.environ.setdefault("GRPC_DEFAULT_SSL_ROOTS_FILE_PATH", "")
+os.environ.setdefault("HTTPX_NO_VERIFY", "1")
+
 client = genai.Client(api_key=GEMINI_API_KEY)
 MODEL = "gemini-3.5-flash-lite"
 
