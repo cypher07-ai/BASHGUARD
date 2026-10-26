@@ -1,4 +1,4 @@
-#BashGuard — Simulate Before You Execute
+# BashGuard — Simulate Before You Execute
 
 An AI agent with a **simulate-first architecture** that predicts the consequences of system commands **before** executing them.
 
@@ -6,7 +6,7 @@ An AI agent with a **simulate-first architecture** that predicts the consequence
 
 ---
 
-##Quick Start (Windows)
+## Quick Start (Windows)
 
 ```bat
 start.bat
