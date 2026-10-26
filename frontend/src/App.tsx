@@ -1174,7 +1174,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           <a href="#" onClick={() => setTab("coder")} className={tab === "coder" ? "nav-active" : ""}>Code Engine</a>
           <a href="#" onClick={() => setTab("history")} className={tab === "history" ? "nav-active" : ""}>Audit log</a>
           <a href="#" onClick={() => setTab("demo")} className={tab === "demo" ? "nav-active" : ""}>Demo</a>
-          <a href="https://github.com/cypher07-ai/ai-agent-hackathon" rel="noreferrer" target="_blank">GitHub</a>
+          <a href="https://github.com/cypher07-ai/BASHGUARD" rel="noreferrer" target="_blank">GitHub</a>
         </nav>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <span className="api-status-dot" style={{ background: apiOnline ? "#22c55e" : "#ef4444" }} title={apiOnline ? "API Online" : "API Offline"} />
