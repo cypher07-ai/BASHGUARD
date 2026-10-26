@@ -371,7 +371,7 @@ def history(limit: int = 50):
     """
     log = get_audit_log()
     # Return most recent first
-    return log[-limit:][::-1]
+    return log[:limit]
 
 
 @app.get("/stats")

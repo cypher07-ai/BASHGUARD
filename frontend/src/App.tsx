@@ -59,6 +59,15 @@ type DemoScenario = {
   };
 };
 
+type ExecutionResult = {
+  was_blocked?: boolean;
+  block_reason?: string;
+  was_executed?: boolean;
+  output?: string;
+  error?: string;
+  success?: boolean;
+};
+
 type AgentChatResponse = {
   original_prompt: string;
   intent: string;
@@ -484,6 +493,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [result, setResult] = useState<AgentChatResponse | null>(null);
   const [copied, setCopied] = useState(false);
   const [decisionMsg, setDecisionMsg] = useState("");
+  const [execResult, setExecResult] = useState<ExecutionResult | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
   const samplePrompts = [
@@ -515,6 +525,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     setLoading(true);
     setError("");
     setDecisionMsg("");
+    setExecResult(null);
     setResult(null);
 
     try {
@@ -534,10 +545,12 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     }
   }
 
-  async function decide(action: "execute" | "reject", useSafer = false) {
+  async function handleDecision(action: "execute" | "reject", useSafer = false) {
     if (!result?.simulation) return;
     setLoading(true);
     setError("");
+    setDecisionMsg("");
+    setExecResult(null);
     const plannedCmd = (useSafer && result.simulation.safer_command) ? result.simulation.safer_command : result.simulation.planned_command;
     try {
       const res = await fetch(`${API_URL}/${action}`, {
@@ -557,15 +570,22 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               }
         ),
       });
-      const data = await res.json();
-      setDecisionMsg(
-        action === "execute"
-          ? (data.was_blocked ? "Permanently blocked by BashGuard hard-block rules." : (data.success ? `✓ Executed: ${plannedCmd}` : data.error))
-          : "Command rejected. Nothing executed."
-      );
+      const data: ExecutionResult = await res.json();
+      setExecResult(data);
+      if (action === "execute") {
+        if (data.was_blocked) {
+          setDecisionMsg(`❌ Blocked: ${data.block_reason || "Permanently blocked by BashGuard hard-block rules."}`);
+        } else if (data.success) {
+          setDecisionMsg(`✓ Executed successfully: ${plannedCmd}`);
+        } else {
+          setDecisionMsg(`⚠ Execution returned non-zero code or error: ${data.error || "Failed"}`);
+        }
+      } else {
+        setDecisionMsg("✓ Command rejected. No action was executed.");
+      }
       await loadHistory();
-    } catch {
-      setError("Failed to execute decision.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to execute decision.");
     } finally {
       setLoading(false);
     }
@@ -814,6 +834,30 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                       {decisionMsg && (
                         <div style={{ marginTop: 14, padding: "12px", background: "var(--canvas)", border: "1px solid var(--pressed)", borderRadius: 8, fontSize: 13, textAlign: "center", fontWeight: 600 }}>
                           {decisionMsg}
+                        </div>
+                      )}
+
+                      {execResult && execResult.was_executed && (
+                        <div style={{ marginTop: 14, background: "#090d16", border: "1px solid #1e293b", borderRadius: 8, overflow: "hidden", textAlign: "left" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "#0f172a", borderBottom: "1px solid #1e293b", fontSize: 12 }}>
+                            <span style={{ color: execResult.success ? "#4ade80" : "#f87171", fontWeight: 700 }}>
+                              {execResult.success ? "● Execution Output" : "● Execution Error"}
+                            </span>
+                            <span style={{ color: "#64748b", fontFamily: "monospace" }}>PowerShell (Windows)</span>
+                          </div>
+                          <div style={{ padding: 12, maxHeight: 220, overflowY: "auto" }}>
+                            {execResult.output ? (
+                              <pre style={{ margin: 0, fontFamily: "monospace", fontSize: 12, color: "#e2e8f0", whiteSpace: "pre-wrap" }}>
+                                {execResult.output}
+                              </pre>
+                            ) : execResult.error ? (
+                              <pre style={{ margin: 0, fontFamily: "monospace", fontSize: 12, color: "#fca5a5", whiteSpace: "pre-wrap" }}>
+                                {execResult.error}
+                              </pre>
+                            ) : (
+                              <span style={{ color: "#64748b", fontSize: 12, fontStyle: "italic" }}>Command executed successfully (no terminal output returned).</span>
+                            )}
+                          </div>
                         </div>
                       )}
                     </aside>

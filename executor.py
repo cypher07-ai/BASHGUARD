@@ -147,13 +147,24 @@ def execute_command(
     # Execute the command
     try:
         if sys.platform == "win32":
+            # Use PowerShell for rich cross-platform and native command support (rm, ls, mkdir, del, etc.)
             proc = subprocess.run(
-                command,
-                shell=True,
+                ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", command],
                 capture_output=True,
                 text=True,
                 timeout=30,
             )
+            # If powershell returned error and it might be a CMD builtin like 'dir', fallback to cmd.exe
+            if proc.returncode != 0 and not proc.stdout and ("is not recognized" in proc.stderr or proc.returncode == 1):
+                cmd_proc = subprocess.run(
+                    command,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                if cmd_proc.returncode == 0 or cmd_proc.stdout:
+                    proc = cmd_proc
         else:
             proc = subprocess.run(
                 command,
@@ -198,11 +209,12 @@ def execute_command(
 
 
 def get_audit_log() -> list:
-    """Retrieve the full audit log."""
+    """Retrieve the full audit log, newest first."""
     if os.path.exists(AUDIT_LOG_FILE):
         try:
             with open(AUDIT_LOG_FILE, "r") as f:
-                return json.load(f)
+                data = json.load(f)
+                return list(reversed(data))
         except (json.JSONDecodeError, FileNotFoundError):
             return []
     return []

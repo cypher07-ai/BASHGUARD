@@ -339,7 +339,7 @@ def resolve_file(
     query = query.strip().lower()
 
     if not search_dirs:
-        # Default smart search locations: current workspace, Downloads, Documents, Desktop
+        # Default smart search locations: current workspace first, then common user directories
         home = str(Path.home())
         search_dirs = [
             os.getcwd(),
@@ -354,17 +354,20 @@ def resolve_file(
         if not os.path.exists(d):
             continue
         try:
+            files_checked_in_dir = 0
             # Walk up to 3 levels deep per directory
             for root, dirs, files in os.walk(d):
                 rel_depth = len(Path(root).relative_to(Path(d)).parts)
                 if rel_depth > 3:
                     continue
-                if "node_modules" in dirs:
-                    dirs.remove("node_modules")
-                if ".git" in dirs:
-                    dirs.remove(".git")
+                # Skip heavy or hidden directories
+                dirs[:] = [sub for sub in dirs if not sub.startswith(".") and sub not in ("node_modules", "AppData", "venv", ".venv", "__pycache__", "dist", "build")]
 
                 for f in files:
+                    files_checked_in_dir += 1
+                    if files_checked_in_dir > 350:
+                        break
+
                     f_lower = f.lower()
                     full_p = os.path.join(root, f)
 
@@ -399,7 +402,7 @@ def resolve_file(
                             sz = 0
                             mtime = "unknown"
 
-                        candidates.append({
+                        candidate = {
                             "name": f,
                             "path": full_p,
                             "relative_path": os.path.relpath(full_p, os.getcwd()) if full_p.startswith(os.getcwd()) else full_p,
@@ -408,7 +411,24 @@ def resolve_file(
                             "modified": mtime,
                             "score": round(score, 2),
                             "match_type": match_type
-                        })
+                        }
+                        candidates.append(candidate)
+
+                        # If exact match or perfect prefix in cwd, exit immediately for sub-millisecond response
+                        if score >= 0.95:
+                            return {
+                                "query": query,
+                                "best_match": candidate,
+                                "total_matches": 1,
+                                "matches": [candidate]
+                            }
+
+                if files_checked_in_dir > 350:
+                    break
+
+            # Fast short-circuit: If an exact or strong prefix match was found in the workspace, return immediately
+            if any(c["score"] >= 0.9 for c in candidates):
+                break
         except Exception:
             continue
 

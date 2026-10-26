@@ -17,7 +17,7 @@ from typing import Dict, List, Optional, Any
 
 from simulator import simulate_command, SimulationResult
 from sandbox import simulate_in_sandbox, is_raw_command, detect_danger_level
-from executor import execute_command, is_hard_blocked
+from executor import execute_command, is_hard_blocked, log_action
 from coder import generate_code, save_code, is_coding_request, detect_language
 import intel
 import integrations
@@ -221,10 +221,46 @@ def run_unified_agent(
     # ──────────────────────────────────────────────────────────────────────────
     # 5. Intent: Fuzzy File Search & Auto-Operation
     # ──────────────────────────────────────────────────────────────────────────
-    file_action_match = re.search(r"^(find|search|show|read|open|edit|change|delete|remove)\s+(?:file\s+)?([a-zA-Z0-9_\-\.]+)", prompt_clean, re.I)
-    if file_action_match and not is_raw_command(prompt_clean):
-        verb = file_action_match.group(1).lower()
-        file_query = file_action_match.group(2).strip()
+    def detect_file_intent(p: str) -> Optional[Dict[str, str]]:
+        p_lower = p.lower().strip()
+        action = None
+        if any(k in p_lower for k in ["delete", "remove", "erase", "trash", "del "]):
+            action = "delete"
+        elif any(k in p_lower for k in ["edit", "modify", "change", "update", "write to"]):
+            action = "edit"
+        elif any(k in p_lower for k in ["read", "show", "open", "view", "what is in", "what's in", "inspect", "cat "]):
+            action = "read"
+        elif any(k in p_lower for k in ["find", "search", "locate", "where is", "look for", "check file"]):
+            action = "find"
+
+        if not action:
+            return None
+
+        # 1. Pattern: file called/named <name>
+        m = re.search(r"(?:file|document|script)\s+(?:called\s+|named\s+)?['\"]?([a-zA-Z0-9_\-\.\/\\]+)['\"]?", p, re.I)
+        if m:
+            t = m.group(1).strip()
+            if t.lower() not in ("me", "the", "a", "an", "all", "trash", "storage", "code", "folder", "directory"):
+                return {"action": action, "target": t}
+
+        # 2. Pattern: verb followed by filename/token
+        m = re.search(r"(?:find|search|show|read|open|view|delete|remove|edit|check|locate|cat)\s+(?:me\s+)?(?:the\s+)?(?:file\s+)?['\"]?([a-zA-Z0-9_\-\.\/\\]+)['\"]?", p, re.I)
+        if m:
+            t = m.group(1).strip()
+            if t.lower() not in ("me", "the", "a", "an", "all", "trash", "storage", "code", "folder", "directory", "files"):
+                return {"action": action, "target": t}
+
+        # 3. Explicit file extension anywhere
+        m = re.search(r"['\"]?([a-zA-Z0-9_\-\/\\]+\.(?:py|tsx?|jsx?|json|css|bat|sh|txt|pdf|docx?|md|env))['\"]?", p, re.I)
+        if m:
+            return {"action": action, "target": m.group(1).strip()}
+
+        return None
+
+    file_intent = detect_file_intent(prompt_clean)
+    if file_intent and not is_raw_command(prompt_clean):
+        verb = file_intent["action"]
+        file_query = file_intent["target"]
 
         resolution = intel.resolve_file(file_query)
         response["intent"] = "fuzzy_file_operation"
@@ -232,33 +268,43 @@ def run_unified_agent(
 
         best = resolution.get("best_match")
         if not best:
-            response["message"] = f"Searched for files starting with or matching `'{file_query}'`, but no matches were found."
+            response["message"] = f"Searched for files starting with or matching `'{file_query}'`, but no matches were found across workspace or common folders."
             return response
 
         target_file = best["path"]
-        response["steps_completed"].append(f"Resolved `'{file_query}'` ➔ `{best['name']}` ({best['match_type']} match in {best['relative_path']}).")
+        response["steps_completed"].append(f"Identified file: `'{file_query}'` ➔ `{best['name']}` ({best['match_type']} match in {best['relative_path']}).")
 
-        # Action: Read / Show
+        # Action: Read / Show / Find
         if verb in ("find", "search", "show", "read", "open"):
             content_res = intel.execute_file_operation(target_file, "read")
             response["message"] = (
                 f"Found file: **{best['name']}** ({best['size_readable']}, modified {best['modified']})\n"
-                f"Path: `{best['relative_path']}`\n\n"
-                f"```text\n{content_res.get('content', '')[:1000]}\n```"
+                f"Location: `{best['relative_path']}`\n\n"
+                f"```text\n{content_res.get('content', '')[:1200]}\n```"
             )
             return response
 
         # Action: Delete (requires consequence check!)
-        if verb in ("delete", "remove"):
-            # Check risk through sandbox & simulator
-            danger_cmd = f"rm {target_file}"
+        if verb == "delete":
+            danger_cmd = f"del /f /q \"{target_file}\""
             sim_res = simulate_command(danger_cmd)
+            sandbox_res = simulate_in_sandbox(danger_cmd)
+
             response["simulation"] = sim_res.__dict__
+            response["sandbox"] = sandbox_res.__dict__
             response["requires_approval"] = True
+
+            log_action({
+                "action": "SIMULATED",
+                "command": danger_cmd,
+                "risk_level": sim_res.risk_level,
+                "reason": f"Delete requested for {best['name']}",
+            })
+
             response["message"] = (
-                f"⚠️ Resolved `'{file_query}'` to **{best['name']}** (`{target_file}`).\n"
+                f"⚠️ Resolved file: **{best['name']}** (`{target_file}`).\n"
                 f"Risk Level: **{sim_res.risk_level}** (Score: {sim_res.risk_score}/100).\n"
-                f"Action paused for safety: Please approve deletion."
+                f"Action paused for safety: Please review blast radius and approve deletion."
             )
             return response
 
@@ -272,10 +318,10 @@ def run_unified_agent(
     # Step 1: Simulator analysis
     sim_result = simulate_command(prompt_clean)
     response["simulation"] = sim_result.__dict__
+    planned_cmd = sim_result.planned_command or prompt_clean
     response["steps_completed"].append(f"Evaluated consequences: Risk level is {sim_result.risk_level} ({sim_result.risk_score}/100).")
 
     # Step 2: Virtual Sandbox execution if raw command or dangerous
-    planned_cmd = sim_result.planned_command or prompt_clean
     sandbox_res = simulate_in_sandbox(planned_cmd)
     response["sandbox"] = sandbox_res.__dict__
 
@@ -287,9 +333,17 @@ def run_unified_agent(
         sim_result.requires_approval
         or is_hard_blocked(planned_cmd)[0]
         or sim_result.risk_level in ("CRITICAL", "HIGH", "MEDIUM")
-        or sim_result.risk_score >= 25
+        or sim_result.risk_score >= 20
         or bool(sandbox_res.files_deleted)
     )
+
+    # Step 3: Log simulation to audit trail
+    log_action({
+        "action": "SIMULATED",
+        "command": planned_cmd,
+        "risk_level": sim_result.risk_level,
+        "reason": sim_result.command_explanation[:120],
+    })
 
     response["message"] = (
         f"**Command:** `{planned_cmd}`\n"
