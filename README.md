@@ -1,4 +1,4 @@
-# 🛡️ BashGuard — Simulate Before You Execute
+#BashGuard — Simulate Before You Execute
 
 An AI agent with a **simulate-first architecture** that predicts the consequences of system commands **before** executing them.
 
@@ -6,7 +6,7 @@ An AI agent with a **simulate-first architecture** that predicts the consequence
 
 ---
 
-## 🚀 Quick Start (Windows)
+##Quick Start (Windows)
 
 ```bat
 start.bat
@@ -74,12 +74,12 @@ ai-agent-hackathon/
 
 ## Features
 
-- 🔍 **Blast Radius Analysis** — Shows exactly what files, directories, and processes will be affected
-- 📊 **Risk Scoring** — CRITICAL / HIGH / MEDIUM / LOW with detailed reasons
-- 💡 **Safer Alternatives** — Suggests less risky commands when possible
-- 🚨 **Hard Block List** — Some commands are blocked no matter what (`rm -rf /`, `format c:`, etc.)
-- 📜 **Audit Log** — Every action (executed, rejected, blocked) is permanently logged
-- 🔐 **Login Page** — Session-based access (Figma-designed UI)
+- **Blast Radius Analysis** — Shows exactly what files, directories, and processes will be affected
+- **Risk Scoring** — CRITICAL / HIGH / MEDIUM / LOW with detailed reasons
+- **Safer Alternatives** — Suggests less risky commands when possible
+- **Hard Block List** — Some commands are blocked no matter what (`rm -rf /`, `format c:`, etc.)
+- **Audit Log** — Every action (executed, rejected, blocked) is permanently logged
+- **Login Page** — Session-based access (Figma-designed UI)
 
 ---
 
