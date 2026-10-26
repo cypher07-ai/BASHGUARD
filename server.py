@@ -10,7 +10,7 @@ Run with: uvicorn server:app --reload --port 8000
 import os
 import sys
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,6 +29,9 @@ from auth import (
     register_user, login_user, logout_user,
     get_auth_status, validate_token, change_password, require_auth,
 )
+import intel
+import integrations
+import unified_agent
 
 # ============================================================
 #  APP SETUP
@@ -99,6 +102,40 @@ class ChangePasswordRequest(BaseModel):
     token: str
     old_password: str
     new_password: str
+
+
+# ── Omni-Agent & Intel Models ──
+class AgentChatRequest(BaseModel):
+    """Request for the unified all-in-one agent endpoint."""
+    prompt: str
+    context: Optional[dict] = None
+
+class StorageClassifyRequest(BaseModel):
+    target_path: Optional[str] = None
+    max_files: Optional[int] = 300
+
+class CleanTrashRequest(BaseModel):
+    file_paths: List[str]
+    quarantine: Optional[bool] = True
+
+class ResolveFileRequest(BaseModel):
+    query: str
+    search_dirs: Optional[List[str]] = None
+
+class FileActionRequest(BaseModel):
+    target_path: str
+    operation: str  # read, write, append, delete, move, create_folder
+    content: Optional[str] = None
+    destination: Optional[str] = None
+
+class GitActionRequest(BaseModel):
+    action: str  # status, commit, push, clone
+    message: Optional[str] = "update via BashGuard Agent"
+    repo: Optional[str] = None
+
+class LaunchAppRequest(BaseModel):
+    app: str  # code, explorer, terminal
+    path: Optional[str] = None
 
 
 # ============================================================
@@ -773,6 +810,119 @@ def detect_code_request(req: SimulateRequest):
         "extension": ext,
         "run_command_template": run_cmd or "",
     }
+
+
+# ============================================================
+#  UNIFIED AGENT & INTELLIGENCE ENDPOINTS
+# ============================================================
+
+@app.post("/agent/chat")
+def unified_agent_chat(req: AgentChatRequest):
+    """
+    Unified Omni-Agent Endpoint:
+    Combines everything into ONE single window:
+    - Commands & Consequences
+    - Code Generation & Folder Scaffolding
+    - Storage Cleaning & Trash vs. Necessary Classification
+    - Fuzzy File Search & Modification
+    - GitHub & System App Integration
+    """
+    if not req.prompt.strip():
+        raise HTTPException(status_code=400, detail="Prompt cannot be empty")
+    return unified_agent.run_unified_agent(req.prompt, req.context)
+
+
+@app.post("/intel/classify-storage")
+def api_classify_storage(req: StorageClassifyRequest):
+    """
+    Scans a folder and categorizes files into TRASH, REVIEW, and ESSENTIAL.
+    Identifies duplicate files, stale installers, and cache bloat.
+    """
+    return intel.classify_storage(
+        target_path=req.target_path,
+        max_files=req.max_files or 300
+    )
+
+
+@app.post("/intel/clean-trash")
+def api_clean_trash(req: CleanTrashRequest):
+    """
+    Safely removes or quarantines identified trash files with rollback capability.
+    """
+    return intel.clean_trash_items(
+        file_paths=req.file_paths,
+        quarantine=req.quarantine if req.quarantine is not None else True
+    )
+
+
+@app.post("/intel/resolve-file")
+def api_resolve_file(req: ResolveFileRequest):
+    """
+    Finds files matching prefix, initial substring, or fuzzy similarity.
+    Allows user to type 'serv' or 'app' and find 'server.py' or 'App.tsx'.
+    """
+    return intel.resolve_file(
+        query=req.query,
+        search_dirs=req.search_dirs
+    )
+
+
+@app.post("/intel/file-action")
+def api_file_action(req: FileActionRequest):
+    """
+    Performs file operations (read, write, append, replace, delete, move, create_folder).
+    """
+    return intel.execute_file_operation(
+        target_path=req.target_path,
+        operation=req.operation,
+        content=req.content,
+        destination=req.destination
+    )
+
+
+@app.get("/integrations/github")
+def api_github_info():
+    """
+    Returns authenticated GitHub profile, repositories, and recent commits.
+    """
+    status = integrations.get_github_status()
+    repos = integrations.list_github_repos(limit=8)
+    active_repo = "cypher07-ai/ai-agent-hackathon"
+    commits = integrations.get_repo_commits(active_repo, limit=5)
+    return {
+        "status": status,
+        "repositories": repos,
+        "active_repo": active_repo,
+        "recent_commits": commits
+    }
+
+
+@app.post("/integrations/github/action")
+def api_github_action(req: GitActionRequest):
+    """
+    Performs git operations (status, commit, push, clone).
+    """
+    return integrations.perform_git_action(
+        action=req.action,
+        message=req.message or "update via BashGuard Agent",
+        repo=req.repo
+    )
+
+
+@app.get("/integrations/system")
+def api_system_health():
+    """
+    Fetches disk drives, memory, system specs, CPU count, and platform info.
+    """
+    return integrations.get_system_health()
+
+
+@app.post("/integrations/launch-app")
+def api_launch_app(req: LaunchAppRequest):
+    """
+    Launches local desktop applications (VS Code, File Explorer, Terminal).
+    """
+    return integrations.launch_application(app=req.app, path=req.path)
 
 
 if __name__ == "__main__":

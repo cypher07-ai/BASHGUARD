@@ -281,3 +281,32 @@ nav a.nav-active::after { content: ''; position: absolute; bottom: -4px; left: 0
   .coder-form-row { flex-direction: column; align-items: stretch; }
   .coder-submit { width: 100%; }
 }
+
+
+/* ─── Unified Omni-Agent Styles ──────────────────────────── */
+.omni-prompt-card { background: var(--canvas); border-radius: 20px; box-shadow: 0 8px 30px rgba(0,0,0,.08); border: 1px solid var(--pressed); padding: 28px; display: grid; gap: 20px; }
+.omni-textarea { background: var(--soft); font-size: 16px; line-height: 1.5; border-radius: 12px; min-height: 100px; padding: 18px; border: 1px solid transparent; transition: border-color .2s; }
+.omni-textarea:focus { border-color: var(--ink); }
+.quick-pills { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+.quick-pill { background: var(--soft); border: 1px solid var(--pressed); border-radius: 999px; font-size: 12px; font-weight: 500; padding: 8px 14px; cursor: pointer; transition: all .18s; display: inline-flex; align-items: center; gap: 6px; }
+.quick-pill:hover { background: var(--ink); color: var(--canvas); border-color: var(--ink); transform: translateY(-1px); }
+
+.step-timeline { display: flex; flex-wrap: wrap; gap: 10px; padding: 16px 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 24px; }
+.step-badge { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; background: #e0f2fe; color: #0369a1; padding: 6px 12px; border-radius: 999px; }
+
+.storage-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 20px 0; }
+.storage-card { border: 1px solid var(--pressed); border-radius: 14px; padding: 18px; background: var(--canvas); display: grid; gap: 8px; }
+.storage-card.trash { border-color: #fca5a5; background: #fff5f5; }
+.storage-card.review { border-color: #fde047; background: #fefce8; }
+.storage-card.essential { border-color: #86efac; background: #f0fdf4; }
+
+.storage-stat { font-size: 26px; font-weight: 800; }
+.badge-trash { background: #ef4444; color: white; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.badge-review { background: #eab308; color: black; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.badge-essential { background: #22c55e; color: white; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+
+.github-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-top: 14px; }
+.github-repo-card { border: 1px solid var(--pressed); border-radius: 12px; padding: 16px; background: var(--canvas); display: flex; flex-direction: column; justify-content: space-between; gap: 10px; transition: transform .18s; }
+.github-repo-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,.06); }
+
+.fuzzy-match-box { background: #f1f5f9; border-left: 4px solid var(--ink); padding: 16px 20px; border-radius: 0 10px 10px 0; margin: 16px 0; }
