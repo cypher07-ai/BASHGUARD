@@ -282,7 +282,14 @@ def run_unified_agent(
     if sandbox_res.files_deleted:
         response["steps_completed"].append(f"Virtual Sandbox: {len(sandbox_res.files_deleted)} files ({sandbox_res.data_destroyed_readable}) would be impacted.")
 
-    response["requires_approval"] = sim_result.requires_approval or is_hard_blocked(planned_cmd)[0]
+    # Require explicit user permission/approval for dangerous actions
+    response["requires_approval"] = (
+        sim_result.requires_approval
+        or is_hard_blocked(planned_cmd)[0]
+        or sim_result.risk_level in ("CRITICAL", "HIGH", "MEDIUM")
+        or sim_result.risk_score >= 25
+        or bool(sandbox_res.files_deleted)
+    )
 
     response["message"] = (
         f"**Command:** `{planned_cmd}`\n"

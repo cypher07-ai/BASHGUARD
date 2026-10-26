@@ -137,7 +137,19 @@ function riskColor(level: string) {
   return { CRITICAL: "#dc2626", HIGH: "#f97316", MEDIUM: "#eab308", LOW: "#22c55e" }[level] ?? "#6b7280";
 }
 
-// ─── Shared Components ────────────────────────────────────────────────────────
+function riskDialColor(score: number) {
+  if (score <= 30) return "#22c55e";
+  if (score <= 60) return "#eab308";
+  return "#ef4444";
+}
+
+function riskDialLabel(score: number) {
+  if (score <= 30) return "Low";
+  if (score <= 60) return "Medium";
+  return "High";
+}
+
+// ─── Shared UI Components ─────────────────────────────────────────────────────
 
 function Button({ children, className = "", ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return <button className={`button ${className}`} {...props}>{children}</button>;
@@ -148,6 +160,102 @@ function Brand() {
     <div className="brand">
       <span className="brand-mark">B</span>
       <span>BashGuard</span>
+    </div>
+  );
+}
+
+// ─── The Risk Calculator Component ────────────────────────────────────────────
+
+function RiskDial({ value }: { value: number }) {
+  const color = riskDialColor(value);
+  const label = riskDialLabel(value);
+  const dialStyle = value === 0
+    ? ({ background: color } as React.CSSProperties)
+    : ({ "--score": `${value * 3.6}deg`, "--dial-color": color } as React.CSSProperties);
+
+  return (
+    <div className="risk-dial" style={dialStyle}>
+      <div><strong>{value}</strong><span>/ 100</span></div>
+      <small>{label} risk</small>
+    </div>
+  );
+}
+
+// ─── The Sandbox Diff Panel Component ─────────────────────────────────────────
+
+function SandboxPanel({ sandbox }: { sandbox: SandboxResult }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!sandbox) return null;
+  const pct = sandbox.destruction_percentage ?? 0;
+  const PREVIEW = 8;
+  const total = sandbox.files_deleted?.length ?? 0;
+  const shown = expanded ? sandbox.files_deleted : sandbox.files_deleted?.slice(0, PREVIEW);
+
+  return (
+    <div className="sandbox-panel">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <p className="eyebrow" style={{ margin: 0 }}>Virtual Filesystem Sandbox — Differential Scan</p>
+        <span className="status" style={{ fontSize: 11, padding: "4px 8px" }}>Zero disk changes</span>
+      </div>
+
+      <div className="sandbox-stats">
+        <div className="sandbox-stat">
+          <strong>{sandbox.before_file_count}</strong>
+          <span>Files before</span>
+        </div>
+        <div className="sandbox-arrow">→</div>
+        <div className="sandbox-stat">
+          <strong style={{ color: sandbox.after_file_count < sandbox.before_file_count ? "#ef4444" : "#22c55e" }}>
+            {sandbox.after_file_count}
+          </strong>
+          <span>Files after</span>
+        </div>
+        <div className="sandbox-stat">
+          <strong style={{ color: pct > 50 ? "#ef4444" : "#22c55e" }}>{pct.toFixed(0)}%</strong>
+          <span>Destroyed</span>
+        </div>
+        {sandbox.data_destroyed_readable && sandbox.data_destroyed_readable !== "0 B" && (
+          <div className="sandbox-stat">
+            <strong style={{ color: "#ef4444" }}>{sandbox.data_destroyed_readable}</strong>
+            <span>Data lost</span>
+          </div>
+        )}
+      </div>
+
+      {sandbox.is_catastrophic && (
+        <div className="sandbox-catastrophic" style={{ background: "#fee2e2", color: "#991b1b", padding: "10px 14px", borderRadius: 8, fontWeight: 700, margin: "12px 0", fontSize: 13 }}>
+          ⚠️ CATASTROPHIC BLAST RADIUS — Permanent and irreversible if executed!
+        </div>
+      )}
+
+      {sandbox.impact_summary && (
+        <p className="sandbox-impact" style={{ margin: "10px 0", fontSize: 13, color: "var(--body)" }}>
+          {sandbox.impact_summary}
+        </p>
+      )}
+
+      {total > 0 && (
+        <div className="sandbox-files" style={{ marginTop: 12 }}>
+          <p className="eyebrow" style={{ marginBottom: 8 }}>Files that would be affected / destroyed ({total})</p>
+          <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid var(--pressed)", borderRadius: 8, background: "#fff" }}>
+            {shown?.map((f, i) => (
+              <div key={i} className="sandbox-file-row" style={{ display: "flex", justifyContent: "space-between", padding: "6px 12px", borderBottom: "1px solid #f1f5f9", fontSize: 12, fontFamily: "monospace" }}>
+                <span className="sandbox-file-name" style={{ color: "#b91c1c" }}>{f.path || f.name}</span>
+                {f.size_bytes > 0 && <span className="sandbox-file-size" style={{ color: "#64748b" }}>{formatBytes(f.size_bytes)}</span>}
+              </div>
+            ))}
+          </div>
+          {total > PREVIEW && (
+            <button
+              className="text-button"
+              style={{ fontSize: 12, marginTop: 8 }}
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {expanded ? "Show less" : `+ ${total - PREVIEW} more files — click to expand`}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -379,8 +487,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
   const samplePrompts = [
+    "del /s /q *.*",
     "create a folder called test_game and write a snake game in python inside it",
-    "simulate rm -rf /",
+    "rm -rf ~/projects",
     "judge what files on my laptop are necessary and what are trash in Downloads",
     "clean trash in my downloads",
     "find file server and show me what's inside",
@@ -425,8 +534,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     }
   }
 
-  async function handleDecision(action: "execute" | "reject", useSafer = false) {
+  async function decide(action: "execute" | "reject", useSafer = false) {
     if (!result?.simulation) return;
+    setLoading(true);
+    setError("");
     const plannedCmd = (useSafer && result.simulation.safer_command) ? result.simulation.safer_command : result.simulation.planned_command;
     try {
       const res = await fetch(`${API_URL}/${action}`, {
@@ -455,6 +566,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       await loadHistory();
     } catch {
       setError("Failed to execute decision.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -550,7 +663,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   Simulate, Code, Clean & Execute.
                 </h1>
                 <p className="muted" style={{ fontSize: 17, maxWidth: 800, margin: 0 }}>
-                  One single workspace for everything: simulate dangerous commands before execution, synthesize code and scaffold project folders, judge trash vs necessary files, fuzzy-search files, and inspect GitHub.
+                  One single workspace for everything: simulate dangerous commands with the <strong>Virtual Sandbox</strong> and <strong>Risk Calculator</strong>, approve/reject execution with permission gates, synthesize code and scaffold project folders, judge trash vs necessary files, fuzzy-search files, and inspect GitHub.
                 </p>
               </div>
             </div>
@@ -559,7 +672,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <form className="omni-prompt-card" onSubmit={(e) => handleUnifiedSubmit(e)}>
               <textarea
                 className="omni-textarea"
-                placeholder="Type anything: 'rm -rf /', 'create a folder called test_game and write a snake game in python inside it', 'judge what files in Downloads are trash vs necessary', or 'find server'..."
+                placeholder="Type anything: 'del /s /q *.*', 'create folder test_game and write snake in python', 'judge trash in Downloads', or 'find server'..."
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 disabled={loading}
@@ -614,91 +727,102 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   </p>
                 </div>
 
-                {/* 1. Command Consequence Simulation & Blast Radius (The Simulator) */}
+                {/* ══════════════════════════════════════════════════════════════════ */}
+                {/* 1. SIMULATION + SANDBOX + RISK CALCULATOR + PERMISSION GATE       */}
+                {/* ══════════════════════════════════════════════════════════════════ */}
                 {result.simulation && (
-                  <article className="result-main">
-                    <div className="command-preview">
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                        <span>Consequence & Blast Radius Simulation</span>
-                        <span className="risk-pill" style={{ background: riskColor(result.simulation.risk_level), color: "#fff" }}>
-                          {result.simulation.risk_level} Risk ({result.simulation.risk_score}/100)
-                        </span>
-                      </div>
-                      <code>{result.simulation.planned_command}</code>
-                    </div>
-
-                    <p className="explanation" style={{ margin: 0, padding: "18px 24px" }}>
-                      {result.simulation.command_explanation}
-                    </p>
-
-                    <div className="impact-stats">
-                      <div><strong>{result.simulation.total_files_count}</strong><span>Files affected</span></div>
-                      <div><strong>{formatBytes(result.simulation.total_size_bytes)}</strong><span>Data affected</span></div>
-                      <div><strong>{result.simulation.is_reversible ? "Yes" : "No"}</strong><span>Reversible</span></div>
-                      <div><strong>{result.simulation.simulation_confidence}</strong><span>Confidence</span></div>
-                    </div>
-
-                    {/* Safer Alternative */}
-                    {result.simulation.safer_command && (
-                      <div style={{ padding: "16px 24px", background: "#f0fdf4", borderTop: "1px solid #bbf7d0", borderBottom: "1px solid #bbf7d0" }}>
-                        <span className="eyebrow" style={{ color: "#16a34a" }}>Proactive Safer Alternative Suggested</span>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginTop: 6 }}>
-                          <code>{result.simulation.safer_command}</code>
-                          <Button className="secondary" style={{ fontSize: 13, padding: "8px 14px", height: "auto", minHeight: 34 }} onClick={() => handleDecision("execute", true)}>
-                            Use Safer Command →
-                          </Button>
+                  <div className="result-grid" style={{ marginTop: 12 }}>
+                    {/* Left Column: Command preview, impact stats, safer command & Sandbox Panel */}
+                    <article className="result-main">
+                      <div className="command-preview">
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                          <span>Planned System Command</span>
+                          <span className="risk-pill" style={{ background: riskColor(result.simulation.risk_level), color: "#fff" }}>
+                            {result.simulation.risk_level} Risk
+                          </span>
                         </div>
+                        <code>{result.simulation.planned_command}</code>
                       </div>
-                    )}
 
-                    {/* Virtual Sandbox BEFORE vs AFTER Differential */}
-                    {result.sandbox && (
-                      <div style={{ padding: "20px 24px", borderTop: "1px solid var(--pressed)", background: "#fafafa" }}>
-                        <p className="eyebrow" style={{ marginBottom: 10 }}>Virtual Filesystem Sandbox (Zero Real Modification)</p>
-                        <div style={{ display: "flex", gap: 24, flexWrap: "wrap", fontSize: 13, marginBottom: 12 }}>
-                          <span>Target: <strong>{result.sandbox.target_path || "Current Directory"}</strong></span>
-                          <span>Before: <strong>{result.sandbox.before_file_count} files</strong></span>
-                          <span>After: <strong>{result.sandbox.after_file_count} files</strong></span>
-                          <span>Data Destroyed: <strong style={{ color: "#dc2626" }}>{result.sandbox.data_destroyed_readable} ({result.sandbox.destruction_percentage}%)</strong></span>
-                        </div>
-                        {result.sandbox.files_deleted && result.sandbox.files_deleted.length > 0 && (
-                          <div style={{ maxHeight: 160, overflowY: "auto", background: "#fff", padding: 12, borderRadius: 8, border: "1px solid var(--pressed)", fontSize: 12, fontFamily: "monospace" }}>
-                            {result.sandbox.files_deleted.map((del, dIdx) => (
-                              <div key={dIdx} style={{ color: "#b91c1c", padding: "2px 0" }}>
-                                ✗ {del.path} ({formatBytes(del.size_bytes)})
-                              </div>
+                      <p className="explanation" style={{ margin: 0, padding: "20px 24px", lineHeight: 1.6 }}>
+                        {result.simulation.command_explanation}
+                      </p>
+
+                      <div className="impact-stats">
+                        <div><strong>{result.simulation.total_files_count}</strong><span>Files affected</span></div>
+                        <div><strong>{formatBytes(result.simulation.total_size_bytes)}</strong><span>Data affected</span></div>
+                        <div><strong>{result.simulation.is_reversible ? "Yes" : "No"}</strong><span>Reversible</span></div>
+                        <div><strong>{result.simulation.simulation_confidence}</strong><span>Confidence</span></div>
+                      </div>
+
+                      {/* Warnings / Risk Reasons */}
+                      {(result.simulation.risk_reasons?.length > 0 || result.simulation.warnings?.length > 0) && (
+                        <div className="reasons" style={{ padding: "20px 24px", borderTop: "1px solid var(--pressed)" }}>
+                          <h3 style={{ fontSize: 16, margin: "0 0 10px" }}>What needs your attention</h3>
+                          <ul style={{ margin: 0, paddingLeft: 20, color: "var(--body)", fontSize: 14, lineHeight: 1.6 }}>
+                            {result.simulation.risk_reasons?.map((r, i) => (
+                              <li key={i}>{r}</li>
                             ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Approval Gate */}
-                    {result.requires_approval && (
-                      <div style={{ padding: "20px 24px", background: "#fff1f2", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-                        <span style={{ fontWeight: 600, color: "#9f1239", fontSize: 14 }}>
-                          ⚠️ Dangerous action detected. Execute only with explicit consent.
-                        </span>
-                        <div style={{ display: "flex", gap: 10 }}>
-                          <Button className="primary" style={{ background: "#dc2626" }} onClick={() => handleDecision("execute")}>
-                            Approve & Execute
-                          </Button>
-                          <Button className="secondary" onClick={() => handleDecision("reject")}>
-                            Reject & Abort
-                          </Button>
+                            {result.simulation.warnings?.map((w, i) => (
+                              <li key={`w-${i}`} style={{ color: "#dc2626" }}>{w}</li>
+                            ))}
+                          </ul>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {decisionMsg && (
-                      <div style={{ padding: "14px 24px", background: "var(--soft)", fontWeight: 600, fontSize: 14 }}>
-                        {decisionMsg}
+                      {/* Proactive Safer Alternative */}
+                      {result.simulation.safer_command && (
+                        <div className="safer" style={{ padding: "20px 24px", borderTop: "1px solid var(--pressed)", background: "#f0fdf4" }}>
+                          <span className="eyebrow" style={{ color: "#16a34a" }}>Safer alternative available</span>
+                          <h3 style={{ margin: "6px 0 10px", fontSize: 16 }}>{result.simulation.safer_alternative}</h3>
+                          <code>{result.simulation.safer_command}</code>
+                        </div>
+                      )}
+
+                      {/* Virtual Sandbox Panel (BEFORE vs AFTER Diff) */}
+                      {result.sandbox && <SandboxPanel sandbox={result.sandbox} />}
+                    </article>
+
+                    {/* Right Column: The Risk Calculator (Dial) + Permission/Approval Gate */}
+                    <aside className="risk-panel">
+                      <p className="eyebrow" style={{ textAlign: "center", margin: "0 0 8px" }}>Risk Calculator</p>
+                      <RiskDial value={result.simulation.risk_score} />
+
+                      <div className="decision-copy" style={{ margin: "16px 0 20px" }}>
+                        <h3 style={{ fontSize: 18, margin: "0 0 6px" }}>
+                          {result.requires_approval ? "Your approval is required" : "Safe to proceed"}
+                        </h3>
+                        <p style={{ margin: 0 }}>
+                          BashGuard will never execute this command without your explicit decision.
+                        </p>
                       </div>
-                    )}
-                  </article>
+
+                      <div style={{ display: "grid", gap: 10 }}>
+                        <Button className="primary" disabled={loading} onClick={() => handleDecision("execute")}>
+                          Approve and execute
+                        </Button>
+                        {result.simulation.safer_command && (
+                          <Button className="subtle" disabled={loading} onClick={() => handleDecision("execute", true)}>
+                            Use safer version
+                          </Button>
+                        )}
+                        <Button className="text-button" disabled={loading} onClick={() => handleDecision("reject")}>
+                          Reject command
+                        </Button>
+                      </div>
+
+                      {decisionMsg && (
+                        <div style={{ marginTop: 14, padding: "12px", background: "var(--canvas)", border: "1px solid var(--pressed)", borderRadius: 8, fontSize: 13, textAlign: "center", fontWeight: 600 }}>
+                          {decisionMsg}
+                        </div>
+                      )}
+                    </aside>
+                  </div>
                 )}
 
-                {/* 2. Code Generation Result (The Code Engine) */}
+                {/* ══════════════════════════════════════════════════════════════════ */}
+                {/* 2. CODE ENGINE RESULT (IF CODE WAS GENERATED)                     */}
+                {/* ══════════════════════════════════════════════════════════════════ */}
                 {result.code_result && (
                   <div className="coder-result" style={{ marginTop: 0 }}>
                     <div className="coder-result-header">
@@ -725,7 +849,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   </div>
                 )}
 
-                {/* 3. Storage Intelligence Result */}
+                {/* ══════════════════════════════════════════════════════════════════ */}
+                {/* 3. STORAGE INTELLIGENCE (TRASH VS NECESSARY)                      */}
+                {/* ══════════════════════════════════════════════════════════════════ */}
                 {result.storage_analysis && (
                   <div className="command-card" style={{ border: "1px solid var(--pressed)", padding: 24 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
@@ -791,7 +917,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   </div>
                 )}
 
-                {/* 4. GitHub Live Data */}
+                {/* ══════════════════════════════════════════════════════════════════ */}
+                {/* 4. GITHUB LIVE INTEGRATION                                        */}
+                {/* ══════════════════════════════════════════════════════════════════ */}
                 {result.github_data && (
                   <div className="command-card" style={{ border: "1px solid var(--pressed)", padding: 24 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
